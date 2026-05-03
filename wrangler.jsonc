@@ -12,6 +12,7 @@
     {
       "binding": "DB",
       "database_name": "tss-cf-db",
+      "database_id": "435d88b3-4234-4ee3-893a-a9e70ae1b5fc",
       "migrations_dir": "drizzle",
     },
   ],

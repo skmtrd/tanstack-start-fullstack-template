@@ -8,6 +8,20 @@
       "when": 1777810549995,
       "tag": "0000_init_cloudflare_stack",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777811523503,
+      "tag": "0001_busy_paper_doll",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777812041697,
+      "tag": "0002_nosy_slipstream",
+      "breakpoints": true
     }
   ]
 }

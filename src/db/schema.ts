@@ -85,10 +85,24 @@ export const verification = sqliteTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const todos = sqliteTable("todos", {
-  id: integer({ mode: "number" }).primaryKey({
-    autoIncrement: true,
-  }),
-  title: text().notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
-});
+export const todos = sqliteTable(
+  "todos",
+  {
+    id: integer({ mode: "number" }).primaryKey({
+      autoIncrement: true,
+    }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text().notNull(),
+    completed: integer("completed", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdateFn(() => new Date()),
+  },
+  (table) => [index("todos_user_id_idx").on(table.userId)],
+);
