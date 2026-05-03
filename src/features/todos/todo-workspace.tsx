@@ -10,8 +10,29 @@ const todoKeys = {
   all: ["todos"] as const,
 };
 
+type Todo = Awaited<ReturnType<typeof listTodos>>[number];
+
+let nextOptimisticTodoId = 0;
+
+function createOptimisticTodo(title: string): Todo {
+  const now = new Date().toISOString();
+
+  return {
+    id: --nextOptimisticTodoId,
+    title,
+    completed: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function isOptimisticTodo(todo: Todo) {
+  return todo.id < 0;
+}
+
 export function TodoWorkspace() {
   const [title, setTitle] = useState("");
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const todosQuery = useQuery({
     queryKey: todoKeys.all,
@@ -26,22 +47,80 @@ export function TodoWorkspace() {
 
   const addMutation = useMutation({
     mutationFn: (nextTitle: string) => addTodo({ data: { title: nextTitle } }),
-    onSuccess: async () => {
+    onMutate: async (nextTitle) => {
+      await queryClient.cancelQueries({ queryKey: todoKeys.all });
+      const previousTodos = queryClient.getQueryData<Todo[]>(todoKeys.all);
+      const optimisticTodo = createOptimisticTodo(nextTitle);
+
+      setMutationError(null);
       setTitle("");
+      queryClient.setQueryData<Todo[]>(todoKeys.all, (currentTodos = []) => [
+        optimisticTodo,
+        ...currentTodos,
+      ]);
+
+      return { previousTodos, optimisticTodo };
+    },
+    onError: (error, _nextTitle, context) => {
+      queryClient.setQueryData<Todo[]>(todoKeys.all, (currentTodos = []) =>
+        currentTodos.filter((todo) => todo.id !== context?.optimisticTodo.id),
+      );
+      setMutationError(error instanceof Error ? error.message : "Todo could not be created");
+    },
+    onSuccess: (createdTodo, _nextTitle, context) => {
+      queryClient.setQueryData<Todo[]>(todoKeys.all, (currentTodos = []) =>
+        currentTodos.map((todo) => (todo.id === context.optimisticTodo.id ? createdTodo : todo)),
+      );
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: todoKeys.all });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (todo: { id: number; completed: boolean }) => updateTodo({ data: todo }),
-    onSuccess: async () => {
+    onMutate: async (updatedTodo) => {
+      await queryClient.cancelQueries({ queryKey: todoKeys.all });
+      const previousTodos = queryClient.getQueryData<Todo[]>(todoKeys.all);
+
+      setMutationError(null);
+      queryClient.setQueryData<Todo[]>(todoKeys.all, (currentTodos = []) =>
+        currentTodos.map((todo) =>
+          todo.id === updatedTodo.id
+            ? { ...todo, completed: updatedTodo.completed, updatedAt: new Date().toISOString() }
+            : todo,
+        ),
+      );
+
+      return { previousTodos };
+    },
+    onError: (error, _updatedTodo, context) => {
+      queryClient.setQueryData(todoKeys.all, context?.previousTodos);
+      setMutationError(error instanceof Error ? error.message : "Todo could not be updated");
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: todoKeys.all });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteTodo({ data: { id } }),
-    onSuccess: async () => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: todoKeys.all });
+      const previousTodos = queryClient.getQueryData<Todo[]>(todoKeys.all);
+
+      setMutationError(null);
+      queryClient.setQueryData<Todo[]>(todoKeys.all, (currentTodos = []) =>
+        currentTodos.filter((todo) => todo.id !== id),
+      );
+
+      return { previousTodos };
+    },
+    onError: (error, _id, context) => {
+      queryClient.setQueryData(todoKeys.all, context?.previousTodos);
+      setMutationError(error instanceof Error ? error.message : "Todo could not be deleted");
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: todoKeys.all });
     },
   });
@@ -73,10 +152,9 @@ export function TodoWorkspace() {
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Add a todo"
             maxLength={160}
-            disabled={addMutation.isPending}
             className="h-11"
           />
-          <Button type="submit" size="lg" disabled={addMutation.isPending || !title.trim()}>
+          <Button type="submit" size="lg" disabled={!title.trim()}>
             {addMutation.isPending ? (
               <Loader2 className="animate-spin" aria-hidden="true" />
             ) : (
@@ -85,6 +163,14 @@ export function TodoWorkspace() {
             Add
           </Button>
         </form>
+
+        {mutationError ? (
+          <div className="border-b border-[var(--line)] px-4 py-3">
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {mutationError}
+            </p>
+          </div>
+        ) : null}
 
         <div className="min-h-[360px] p-3">
           {todosQuery.isPending ? (
@@ -103,7 +189,11 @@ export function TodoWorkspace() {
               {todosQuery.data.map((todo) => (
                 <li
                   key={todo.id}
-                  className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md border border-[var(--line)] bg-white/70 p-3"
+                  className={
+                    isOptimisticTodo(todo)
+                      ? "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md border border-[var(--line)] bg-white/70 p-3 opacity-70"
+                      : "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md border border-[var(--line)] bg-white/70 p-3"
+                  }
                 >
                   <Button
                     type="button"
@@ -112,7 +202,7 @@ export function TodoWorkspace() {
                     onClick={() =>
                       updateMutation.mutate({ id: todo.id, completed: !todo.completed })
                     }
-                    disabled={updateMutation.isPending}
+                    disabled={updateMutation.isPending || isOptimisticTodo(todo)}
                     aria-label={todo.completed ? "Mark open" : "Mark complete"}
                   >
                     {todo.completed ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
@@ -141,7 +231,7 @@ export function TodoWorkspace() {
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => deleteMutation.mutate(todo.id)}
-                    disabled={deleteMutation.isPending}
+                    disabled={deleteMutation.isPending || isOptimisticTodo(todo)}
                     aria-label="Delete todo"
                   >
                     <Trash2 aria-hidden="true" />
