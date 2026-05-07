@@ -9,6 +9,11 @@ export const user = sqliteTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: integer("emailVerified", { mode: "boolean" }).notNull().default(false),
   image: text("image"),
+  bio: text("bio"),
+  avatarImageKey: text("avatar_image_key"),
+  avatarImageName: text("avatar_image_name"),
+  avatarImageContentType: text("avatar_image_content_type"),
+  avatarImageSize: integer("avatar_image_size", { mode: "number" }),
   createdAt: date("createdAt")
     .notNull()
     .$defaultFn(() => new Date()),

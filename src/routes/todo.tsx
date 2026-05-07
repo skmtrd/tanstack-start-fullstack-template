@@ -32,7 +32,7 @@ function Todo() {
             </h1>
           </div>
 
-          {user ? <AccountMenu email={user.email} name={user.name} /> : null}
+          {user ? <AccountMenu email={user.email} image={user.image} name={user.name} /> : null}
         </header>
 
         {session.isPending ? (

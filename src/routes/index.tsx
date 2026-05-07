@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CheckSquare, LogIn, UserPlus } from "lucide-react";
+import { CheckSquare, LogIn, UserRound, UserPlus } from "lucide-react";
 
 import { Button } from "#/components/ui/button";
 import { getCurrentSession } from "#/features/auth/server/auth.functions";
@@ -21,12 +21,20 @@ function Home() {
         </div>
 
         {session ? (
-          <Button size="lg" asChild>
-            <Link to="/todo">
-              <CheckSquare aria-hidden="true" />
-              Todo
-            </Link>
-          </Button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button size="lg" asChild>
+              <Link to="/todo">
+                <CheckSquare aria-hidden="true" />
+                Todo
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <Link to="/profile">
+                <UserRound aria-hidden="true" />
+                Profile
+              </Link>
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button size="lg" asChild>

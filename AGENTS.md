@@ -50,6 +50,8 @@ src/features/uploads/
 
 Keep files close to the feature unless they are genuinely cross-feature infrastructure. Shared infrastructure belongs in `src/lib` only when it is not owned by a specific domain.
 
+Do not keep unused generated integration scaffolding in `src/integrations`. Move active integration UI and helpers into the owning feature, such as `features/auth/components`, `features/auth/client`, or `features/auth/server`.
+
 ## Server And Client Rules
 
 - Files in `features/*/client` must not import `cloudflare:workers`, `db`, Better Auth server config, or server-only helpers.
@@ -58,12 +60,15 @@ Keep files close to the feature unless they are genuinely cross-feature infrastr
 - Use `*.functions.ts` for TanStack `createServerFn` wrappers.
 - Use `*.server.ts` for server-only helpers, repositories, policies, serializers, and platform integrations.
 - Route-colocated helper files under `src/routes` should use the `-*.server.ts` pattern so TanStack Router does not treat them as routes.
+- API route-specific DB/R2 logic must live next to that API route as `-*.server.ts`, not under `features/*/server`.
 
 ## Server Functions vs API Routes
 
 Use `createServerFn` for app-internal operations called from route components, loaders, or React Query mutations. Examples: list todos, create todos, get current session.
 
 Use `src/routes/api/**` for explicit HTTP endpoints where the HTTP contract matters. Examples: file upload/download, webhooks, mobile/public API endpoints, custom status codes, response headers, binary bodies, or multipart form data.
+
+If an API route needs ownership checks, route-specific database updates, R2 object persistence, or request/response-specific orchestration, put that logic in a sibling `-*.server.ts` file. Keep the route file itself thin, and extract only truly reusable platform mechanics into feature or infrastructure modules such as `features/uploads/server`.
 
 Better Auth is a special case: keep `/api/auth/$` as a thin route that delegates to `auth.handler(request)`.
 
@@ -103,6 +108,8 @@ Uploads should keep domain APIs separate and storage mechanics shared.
 Use file routes for UI pages under `src/routes`.
 
 Use API routes under `src/routes/api` for HTTP endpoints. Keep route files thin. If a route needs meaningful server logic, colocate it next to the route as `-*.server.ts`.
+
+Do not put logic that exists only to serve one API route in `features/*/server`. `features/*/server` is for `createServerFn` workflows and feature-owned helpers reused outside a single HTTP endpoint.
 
 Do not manually restructure `src/routeTree.gen.ts` as source of truth. It is generated from routes.
 
