@@ -1,16 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Circle, Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
-import { addTodo, deleteTodo, listTodos, updateTodo } from "#/features/todos/todos.functions";
-
-const todoKeys = {
-  all: ["todos"] as const,
-};
-
-type Todo = Awaited<ReturnType<typeof listTodos>>[number];
+import {
+  addTodo,
+  deleteTodo,
+  listTodos,
+  updateTodo,
+} from "#/features/todos/server/todos.functions";
+import { removeTodoImage, uploadTodoImage } from "#/features/todos/client/todo-image.api";
+import { TodoListItem } from "#/features/todos/components/todo-list-item";
+import { todoKeys, type Todo } from "#/features/todos/shared/todos.types";
 
 let nextOptimisticTodoId = 0;
 
@@ -21,6 +23,7 @@ function createOptimisticTodo(title: string): Todo {
     id: --nextOptimisticTodoId,
     title,
     completed: false,
+    image: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -49,7 +52,6 @@ export function TodoWorkspace() {
     mutationFn: (nextTitle: string) => addTodo({ data: { title: nextTitle } }),
     onMutate: async (nextTitle) => {
       await queryClient.cancelQueries({ queryKey: todoKeys.all });
-      const previousTodos = queryClient.getQueryData<Todo[]>(todoKeys.all);
       const optimisticTodo = createOptimisticTodo(nextTitle);
 
       setMutationError(null);
@@ -59,7 +61,7 @@ export function TodoWorkspace() {
         ...currentTodos,
       ]);
 
-      return { previousTodos, optimisticTodo };
+      return { optimisticTodo };
     },
     onError: (error, _nextTitle, context) => {
       queryClient.setQueryData<Todo[]>(todoKeys.all, (currentTodos = []) =>
@@ -125,6 +127,32 @@ export function TodoWorkspace() {
     },
   });
 
+  const uploadImageMutation = useMutation({
+    mutationFn: uploadTodoImage,
+    onMutate: () => {
+      setMutationError(null);
+    },
+    onError: (error) => {
+      setMutationError(error instanceof Error ? error.message : "Image could not be attached");
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: todoKeys.all });
+    },
+  });
+
+  const removeImageMutation = useMutation({
+    mutationFn: removeTodoImage,
+    onMutate: () => {
+      setMutationError(null);
+    },
+    onError: (error) => {
+      setMutationError(error instanceof Error ? error.message : "Image could not be removed");
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: todoKeys.all });
+    },
+  });
+
   function handleAddTodo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextTitle = title.trim();
@@ -132,6 +160,13 @@ export function TodoWorkspace() {
     if (nextTitle) {
       addMutation.mutate(nextTitle);
     }
+  }
+
+  function isImagePending(todoId: number) {
+    return (
+      (uploadImageMutation.isPending && uploadImageMutation.variables?.todoId === todoId) ||
+      (removeImageMutation.isPending && removeImageMutation.variables === todoId)
+    );
   }
 
   return (
@@ -187,56 +222,29 @@ export function TodoWorkspace() {
           ) : todosQuery.data.length ? (
             <ul className="grid gap-2">
               {todosQuery.data.map((todo) => (
-                <li
+                <TodoListItem
                   key={todo.id}
-                  className={
-                    isOptimisticTodo(todo)
-                      ? "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md border border-[var(--line)] bg-white/70 p-3 opacity-70"
-                      : "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md border border-[var(--line)] bg-white/70 p-3"
+                  todo={todo}
+                  isOptimistic={isOptimisticTodo(todo)}
+                  isUpdatePending={
+                    updateMutation.isPending && updateMutation.variables?.id === todo.id
                   }
-                >
-                  <Button
-                    type="button"
-                    variant={todo.completed ? "default" : "outline"}
-                    size="icon-sm"
-                    onClick={() =>
-                      updateMutation.mutate({ id: todo.id, completed: !todo.completed })
-                    }
-                    disabled={updateMutation.isPending || isOptimisticTodo(todo)}
-                    aria-label={todo.completed ? "Mark open" : "Mark complete"}
-                  >
-                    {todo.completed ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
-                  </Button>
-
-                  <div className="min-w-0">
-                    <p
-                      className={
-                        todo.completed
-                          ? "break-words text-sm font-medium text-[var(--sea-ink-soft)] line-through"
-                          : "break-words text-sm font-medium"
-                      }
-                    >
-                      {todo.title}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-                      {new Intl.DateTimeFormat(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      }).format(new Date(todo.createdAt ?? todo.updatedAt))}
-                    </p>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => deleteMutation.mutate(todo.id)}
-                    disabled={deleteMutation.isPending || isOptimisticTodo(todo)}
-                    aria-label="Delete todo"
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </Button>
-                </li>
+                  isDeletePending={deleteMutation.isPending && deleteMutation.variables === todo.id}
+                  isImagePending={isImagePending(todo.id)}
+                  isImageUploading={
+                    uploadImageMutation.isPending &&
+                    uploadImageMutation.variables?.todoId === todo.id
+                  }
+                  isImageRemoving={
+                    removeImageMutation.isPending && removeImageMutation.variables === todo.id
+                  }
+                  onToggle={() =>
+                    updateMutation.mutate({ id: todo.id, completed: !todo.completed })
+                  }
+                  onDelete={() => deleteMutation.mutate(todo.id)}
+                  onAttachImage={(file) => uploadImageMutation.mutate({ todoId: todo.id, file })}
+                  onRemoveImage={() => removeImageMutation.mutate(todo.id)}
+                />
               ))}
             </ul>
           ) : (

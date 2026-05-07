@@ -96,6 +96,10 @@ export const todos = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     title: text().notNull(),
     completed: integer("completed", { mode: "boolean" }).notNull().default(false),
+    imageKey: text("image_key"),
+    imageName: text("image_name"),
+    imageContentType: text("image_content_type"),
+    imageSize: integer("image_size", { mode: "number" }),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .default(sql`(unixepoch())`),

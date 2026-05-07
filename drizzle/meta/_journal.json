@@ -22,6 +22,13 @@
       "when": 1777812041697,
       "tag": "0002_nosy_slipstream",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1778157621454,
+      "tag": "0003_busy_true_believers",
+      "breakpoints": true
     }
   ]
 }

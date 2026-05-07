@@ -6,9 +6,8 @@ import { type FormEvent, useState } from "react";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
-import { authClient } from "#/lib/auth-client";
-
-type AuthMode = "signin" | "signup";
+import { authClient } from "#/features/auth/client/auth-client";
+import type { AuthMode } from "#/features/auth/shared/auth.types";
 
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const [name, setName] = useState("");

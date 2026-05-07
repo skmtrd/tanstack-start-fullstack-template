@@ -5,7 +5,9 @@ import { z } from "zod";
 
 import { db } from "#/db";
 import { todos } from "#/db/schema";
-import { auth } from "#/lib/auth";
+import { serializeTodo } from "#/features/todos/server/todos.serializers.server";
+import { deleteImageObjectSafely } from "#/features/uploads/server/r2-object.server";
+import { auth } from "#/features/auth/server/auth.server";
 
 const addTodoSchema = z.object({
   title: z.string().trim().min(1).max(160),
@@ -19,18 +21,6 @@ const updateTodoSchema = z.object({
 const deleteTodoSchema = z.object({
   id: z.number().int().positive(),
 });
-
-type TodoRow = typeof todos.$inferSelect;
-
-function serializeTodo(todo: TodoRow) {
-  return {
-    id: todo.id,
-    title: todo.title,
-    completed: todo.completed,
-    createdAt: todo.createdAt?.toISOString() ?? null,
-    updatedAt: todo.updatedAt.toISOString(),
-  };
-}
 
 async function requireSession() {
   const session = await auth.api.getSession({
@@ -103,11 +93,17 @@ export const deleteTodo = createServerFn({ method: "POST" })
     const [todo] = await db
       .delete(todos)
       .where(and(eq(todos.id, data.id), eq(todos.userId, session.user.id)))
-      .returning({ id: todos.id });
+      .returning({ id: todos.id, imageKey: todos.imageKey });
 
     if (!todo) {
       throw new Error("Todo not found");
     }
 
-    return todo;
+    await deleteTodoImageObject(todo.imageKey);
+
+    return { id: todo.id };
   });
+
+async function deleteTodoImageObject(imageKey: string | null) {
+  await deleteImageObjectSafely(imageKey, { logContext: { feature: "todo-delete" } });
+}

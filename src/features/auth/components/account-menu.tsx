@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, LogOut } from "lucide-react";
 
 import { Button } from "#/components/ui/button";
-import { authClient } from "#/lib/auth-client";
+import { authClient } from "#/features/auth/client/auth-client";
 
 export function AccountMenu({ email, name }: { email: string; name: string }) {
   const queryClient = useQueryClient();

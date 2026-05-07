@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckSquare, LogIn, UserPlus } from "lucide-react";
 
 import { Button } from "#/components/ui/button";
-import { getCurrentSession } from "#/features/auth/auth.functions";
+import { getCurrentSession } from "#/features/auth/server/auth.functions";
 
 export const Route = createFileRoute("/")({
   loader: () => getCurrentSession(),

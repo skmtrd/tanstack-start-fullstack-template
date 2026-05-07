@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 
-import { AccountMenu } from "#/features/auth/account-menu";
-import { getCurrentSession } from "#/features/auth/auth.functions";
-import { TodoWorkspace } from "#/features/todos/todo-workspace";
-import { authClient } from "#/lib/auth-client";
+import { AccountMenu } from "#/features/auth/components/account-menu";
+import { getCurrentSession } from "#/features/auth/server/auth.functions";
+import { TodoWorkspace } from "#/features/todos/components/todo-workspace";
+import { authClient } from "#/features/auth/client/auth-client";
 
 export const Route = createFileRoute("/todo")({
   beforeLoad: async () => {
